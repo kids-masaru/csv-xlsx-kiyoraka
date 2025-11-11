@@ -196,8 +196,22 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
     try:
-        # CSVデータの読み込み
-        df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
+        # CSVデータの読み込み（複数のエンコーディングを試行）
+        encodings = ['utf-8-sig', 'utf-8', 'shift-jis', 'cp932', 'iso-2022-jp', 'euc-jp']
+        df = None
+        last_error = None
+        
+        for encoding in encodings:
+            try:
+                uploaded_file.seek(0)  # ファイルポインタを先頭に戻す
+                df = pd.read_csv(uploaded_file, encoding=encoding)
+                break
+            except (UnicodeDecodeError, UnicodeError):
+                last_error = encoding
+                continue
+        
+        if df is None:
+            raise ValueError(f"CSVファイルの読み込みに失敗しました。サポートされているエンコーディングで保存されているか確認してください。")
         
         # データプレビュー
         st.markdown('<div class="section-title">データプレビュー</div>', unsafe_allow_html=True)
