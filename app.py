@@ -206,21 +206,40 @@ if uploaded_file is not None:
                 uploaded_file.seek(0)  # ファイルポインタを先頭に戻す
                 
                 # ### 修正 ###
-                # sep=None と engine='python' を削除。
-                # Pandasのデフォルト（sep=','、Cエンジン）を使用する。
-                df = pd.read_csv(uploaded_file, encoding=encoding, header=None, on_bad_lines='warn')
+                # header=None を header=0 に変更します。
+                # (または header=0 を削除してもデフォルトで 0 が使われます)
+                df = pd.read_csv(uploaded_file, encoding=encoding, header=0, on_bad_lines='warn')
                 
                 break
             except (UnicodeDecodeError, UnicodeError):
                 last_error = encoding
                 continue
+            except pd.errors.ParserError as e:
+                # header=0 にしたことで、もしCSVの構造が複雑な場合に
+                # ParserError が出る可能性も考慮
+                last_error = f"{encoding} (ParserError: {e})"
+                continue
         
         if df is None:
-            raise ValueError(f"CSVファイルの読み込みに失敗しました。サポートされているエンコーディングで保存されているか確認してください。")
+            st.error(f"CSVファイルの読み込みに失敗しました。サポートされているエンコーディングで保存されているか確認してください。")
+            st.error(f"最後の試行エラー ({last_error})")
+            st.stop()
+
+        # ※※※ 注意 ※※※
+        # Excelに書き込む際、Pandasはヘッダー（1行目）もデータとして書き込みます。
+        # しかし、元のコードではExcelへの書き込み時にヘッダーを書き込まないロジック
+        # (df.iloc[row_idx, col_idx]) になっています。
+        #
+        # もし、CSVの1行目（ヘッダー）もExcelの1行目に書き込みたい場合は、
+        # openpyxl の書き込みロジックを変更する必要があります。
+        #
+        # ここでは「CSVの1行目（ヘッダー）は不要で、2行目以降のデータだけをExcelに書き込む」
+        # という前提で進めますが、データプレビューにはヘッダーが表示されます。
         
         # データプレビュー
-        st.markdown('<div class="section-title">データプレビュー</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="info-box">{len(df)}行 × {len(df.columns)}列のデータが読み込まれました</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">データプレビュー (読み込んだCSVの先頭10行)</div>', unsafe_allow_html=True)
+        # df.index は 0 から始まります (0がCSVの2行目に相当)
+        st.markdown(f'<div class="info-box">{len(df)}行 × {len(df.columns)}列のデータ（ヘッダー除く）が読み込まれました</div>', unsafe_allow_html=True)
         st.dataframe(df.head(10), use_container_width=True)
         
         # 変換ボタン
@@ -242,9 +261,22 @@ if uploaded_file is not None:
                 else:
                     ws = wb.create_sheet(sheet_name)
                 
-                # A列の1行目からデータを書き込み（ヘッダーなし）
+                # ### 変更（確認） ###
+                # CSVの1行目（ヘッダー）をExcelの1行目に書き込むか？
+                #
+                # 案1：ヘッダーも書き込む場合
+                # openpyxl.utils.dataframe.dataframe_to_rows を使うのが簡単
+                # from openpyxl.utils.dataframe import dataframe_to_rows
+                # for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 1):
+                #    for c_idx, value in enumerate(row, 1):
+                #        ws.cell(row=r_idx, column=c_idx, value=value)
+
+                # 案2：元のコード通り、データのみ（ヘッダーなし）で書き込む場合
+                # （df にはヘッダーが含まれていないので、df.iloc は 0 からでOK）
+                # A列の1行目からデータを書き込み
                 for row_idx in range(len(df)):
                     for col_idx in range(len(df.columns)):
+                        # df.iloc[row_idx, col_idx] は、読み込まれたデータのrow_idx行目
                         ws.cell(row=row_idx + 1, column=col_idx + 1, value=df.iloc[row_idx, col_idx])
                 
                 # メモリ上に保存
@@ -256,7 +288,6 @@ if uploaded_file is not None:
                 st.markdown('<div class="success-box">変換が完了しました</div>', unsafe_allow_html=True)
                 
                 # ダウンロードボタン
-                # アップロードされたファイル名から拡張子を除いて_convertedを追加
                 original_name = uploaded_file.name.rsplit('.', 1)[0]
                 download_filename = f"{original_name}_converted.xlsx"
                 
