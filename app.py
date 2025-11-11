@@ -238,13 +238,13 @@ if uploaded_file is not None:
                     ws = wb.create_sheet(sheet_name)
                 
                 # A列の1行目からヘッダーを書き込み
-                for col_idx, column in enumerate(df.columns):
-                    ws.cell(row=1, column=col_idx + 1, value=column)
+                for col_idx in range(len(df.columns)):
+                    ws.cell(row=1, column=col_idx + 1, value=df.columns[col_idx])
                 
                 # A列の2行目からデータを書き込み
-                for row_idx, row in enumerate(df.itertuples(index=False)):
-                    for col_idx, value in enumerate(row):
-                        ws.cell(row=row_idx + 2, column=col_idx + 1, value=value)
+                for row_idx in range(len(df)):
+                    for col_idx in range(len(df.columns)):
+                        ws.cell(row=row_idx + 2, column=col_idx + 1, value=df.iloc[row_idx, col_idx])
                 
                 # メモリ上に保存
                 output = BytesIO()
