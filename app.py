@@ -204,7 +204,12 @@ if uploaded_file is not None:
         for encoding in encodings:
             try:
                 uploaded_file.seek(0)  # ファイルポインタを先頭に戻す
-                df = pd.read_csv(uploaded_file, encoding=encoding, header=None, on_bad_lines='warn', engine='python', sep=None)
+                
+                # ### 修正 ###
+                # sep=None と engine='python' を削除。
+                # Pandasのデフォルト（sep=','、Cエンジン）を使用する。
+                df = pd.read_csv(uploaded_file, encoding=encoding, header=None, on_bad_lines='warn')
+                
                 break
             except (UnicodeDecodeError, UnicodeError):
                 last_error = encoding
