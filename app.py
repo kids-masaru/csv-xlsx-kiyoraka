@@ -253,10 +253,14 @@ if uploaded_file is not None:
                 st.markdown('<div class="success-box">変換が完了しました</div>', unsafe_allow_html=True)
                 
                 # ダウンロードボタン
+                # アップロードされたファイル名から拡張子を除いて_convertedを追加
+                original_name = uploaded_file.name.rsplit('.', 1)[0]
+                download_filename = f"{original_name}_converted.xlsx"
+                
                 st.download_button(
                     label="ダウンロード",
                     data=output,
-                    file_name="converted_template.xlsx",
+                    file_name=download_filename,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
                 )
